@@ -1,0 +1,8 @@
+{
+    "PRODUCTION_BUILD":{
+        "FOLDER_PATH":"C:\\Models",
+        "WEB_SERVER_URL":"http://localhost:8076",
+        "FILE_SERVER_URL":"http://localhost:8037",
+        "SERVER_NAME":"CADServer"
+    }
+}
