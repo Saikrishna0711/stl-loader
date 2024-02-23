@@ -49,10 +49,9 @@ const App = () => {
 
   const getChildContainerStyle = () => {
     const documentHeight = document.documentElement.clientHeight;
-    const headerHeight = 0;
     return {
       display: "flex",
-      height: `${documentHeight - headerHeight - 5}px`,
+      height: `${documentHeight - 5}px`,
     };
   };
 
@@ -133,7 +132,7 @@ const App = () => {
       // Set renderer size to match the window size
       renderer.current.setSize(canvasWidth, canvasHeight, false);
       renderer.current.setPixelRatio(window.devicePixelRatio);
-
+      renderer.current.setClearColor("linear-gradient(to top, #ffffff, #e3e1e3, #cac3c4, #b1a", 1);
       // Append the renderer's DOM element to the container
       mount.current && mount.current.appendChild(renderer.current.domElement);
 
@@ -341,6 +340,8 @@ const App = () => {
     // Create perpendicular plane
     createPerpendicularPlane();
     projectTEAAxis();
+    projectAnteriorLine();
+    createFlexExtPlane();
   };
 
   // Function to create a plane perpendicular to the mechanical axis
@@ -419,44 +420,39 @@ const App = () => {
     rotatePlane(angle);
   };
   const [flexExtPlane, setFlexExtPlane] = useState(null);
-  useEffect(() => {
-    // Function to project anterior line onto varus/valgus plane
-    const projectAnteriorLine = () => {
-      const mechAxisStart = landmarks.find((lm) => lm.name === "femurCenter")?.position;
-      const mechAxisEnd = landmarks.find((lm) => lm.name === "hipCenter")?.position;
-      const anteriorLineStart = landmarks.find((lm) => lm.name === "femurCenter")?.position;
-      const anteriorLineEnd = landmarks.find((lm) => lm.name === "hipCenter")?.position;
+  // Function to project anterior line onto varus/valgus plane
+  const projectAnteriorLine = () => {
+    const mechAxisStart = landmarks.find((lm) => lm.name === "femurCenter")?.position;
+    const mechAxisEnd = landmarks.find((lm) => lm.name === "hipCenter")?.position;
+    const anteriorLineStart = landmarks.find((lm) => lm.name === "femurCenter")?.position;
+    const anteriorLineEnd = landmarks.find((lm) => lm.name === "hipCenter")?.position;
 
-      if (mechAxisStart && mechAxisEnd && anteriorLineStart && anteriorLineEnd) {
-        const mechAxis = new THREE.Vector3().copy(mechAxisEnd).sub(mechAxisStart).normalize();
-        const anteriorLine = new THREE.Vector3().copy(anteriorLineEnd).sub(anteriorLineStart);
+    if (mechAxisStart && mechAxisEnd && anteriorLineStart && anteriorLineEnd) {
+      const mechAxis = new THREE.Vector3().copy(mechAxisEnd).sub(mechAxisStart).normalize();
+      const anteriorLine = new THREE.Vector3().copy(anteriorLineEnd).sub(anteriorLineStart);
 
-        // Handle the case where the anteriorLine vector has zero length
-        if (anteriorLine.lengthSq() === 0) {
-          console.error("Error: Anterior line vector has zero length.");
-          return;
-        }
-
-        const projectedPoint = anteriorLineStart.clone().add(
-          anteriorLine.clone().projectOnVector(mechAxis)
-        );
-
-        const endPoint = projectedPoint.clone().add(mechAxis.clone().multiplyScalar(10)); // Assuming a distance of 10 for now
-
-        const material = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 });
-        const geometry = new THREE.BufferGeometry().setFromPoints([projectedPoint, endPoint]);
-        const line = new THREE.Line(geometry, material);
-        line.name = "Projected Anterior Line";
-        scene.current.add(line);
-      } else {
-        console.error("Error: Unable to project anterior line due to missing landmarks.");
+      // Handle the case where the anteriorLine vector has zero length
+      if (anteriorLine.lengthSq() === 0) {
+        console.error("Error: Anterior line vector has zero length.");
+        return;
       }
-    };
 
-    if (modelScene) {
-      projectAnteriorLine();
+      const projectedPoint = anteriorLineStart.clone().add(
+        anteriorLine.clone().projectOnVector(mechAxis)
+      );
+
+      const endPoint = projectedPoint.clone().add(mechAxis.clone().multiplyScalar(10)); // Assuming a distance of 10 for now
+
+      const material = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 });
+      const geometry = new THREE.BufferGeometry().setFromPoints([projectedPoint, endPoint]);
+      const line = new THREE.Line(geometry, material);
+      line.name = "Projected Anterior Line";
+      scene.current.add(line);
+    } else {
+      console.error("Error: Unable to project anterior line due to missing landmarks.");
     }
-  }, [modelScene, plane]);
+  };
+
 
   // Function to create the flexion/extension plane
   const createFlexExtPlane = (projectedPointOnPlane) => {
