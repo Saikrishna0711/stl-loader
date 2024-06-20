@@ -4,6 +4,8 @@ import { loadModel } from "./api/index";
 import * as THREE from "three";
 import { MathUtils } from "three";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 
 const App = () => {
   const [modelLoaded, setModelLoaded] = useState(false);
@@ -16,8 +18,6 @@ const App = () => {
   const [activeLandmarkButton, setActiveLandmarkButton] = useState(null);
   const [translationControlsActive, setTranslationControlsActive] =
     useState(false);
-  const [lines, setLines] = useState([]);
-  const [plane, setPlane] = useState(null);
 
   const camera = useRef();
   const renderer = useRef();
@@ -132,7 +132,10 @@ const App = () => {
       // Set renderer size to match the window size
       renderer.current.setSize(canvasWidth, canvasHeight, false);
       renderer.current.setPixelRatio(window.devicePixelRatio);
-      renderer.current.setClearColor("linear-gradient(to top, #ffffff, #e3e1e3, #cac3c4, #b1a", 1);
+      renderer.current.setClearColor(
+        "linear-gradient(to top, #ffffff, #e3e1e3, #cac3c4, #b1a",
+        1
+      );
       // Append the renderer's DOM element to the container
       mount.current && mount.current.appendChild(renderer.current.domElement);
 
@@ -221,7 +224,7 @@ const App = () => {
 
   const handleCanvasClick = (event) => {
     if (activeLandmarkButton) {
-      console.log(activeLandmarkButton)
+      console.log(activeLandmarkButton);
       const canvasBounds = renderer.current.domElement.getBoundingClientRect();
       const mouse = {
         x: ((event.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1,
@@ -231,54 +234,72 @@ const App = () => {
       const raycaster = new THREE.Raycaster();
       raycaster.setFromCamera(mouse, camera.current);
 
-      const intersects = raycaster.intersectObject(scene.current.children[3], true);
+      const intersects = raycaster.intersectObject(
+        scene.current.children[3],
+        true
+      );
 
-      console.log(intersects, scene)
+      console.log(intersects, scene);
 
       if (intersects.length > 0) {
         const point = intersects[0].point;
 
         // Check if a landmark with the activeLandmarkButton name exists
-        const activeLandmarkLandmark = landmarks.find((landmark) => landmark.name === activeLandmarkButton);
+        const activeLandmarkLandmark = landmarks.find(
+          (landmark) => landmark.name === activeLandmarkButton
+        );
 
         if (activeLandmarkLandmark) {
           // If the landmark already exists, update its position
           activeLandmarkLandmark.mesh.position.copy(point.clone()); // Update the position of the mesh
-          activeLandmarkLandmark.label.position.copy(point.clone().add(new THREE.Vector3(5, 5, 5))); // Update the position of the label
+          activeLandmarkLandmark.label.position.copy(
+            point.clone().add(new THREE.Vector3(5, 5, 5))
+          ); // Update the position of the label
           setLandmarks((prevLandmarks) => {
             const updatedLandmarks = prevLandmarks.map((landmark) =>
-              landmark.name === activeLandmarkButton ? { ...landmark, position: point.clone() } : landmark
+              landmark.name === activeLandmarkButton
+                ? { ...landmark, position: point.clone() }
+                : landmark
             );
             return updatedLandmarks;
           });
         } else {
           // If the landmark doesn't exist, create a new one
           const sphereGeometry = new THREE.SphereGeometry(2, 16, 16); // Adjust the radius and segments as needed
-          const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xaaff00 });
+          const sphereMaterial = new THREE.MeshBasicMaterial({
+            color: 0xaaff00,
+          });
           const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
           sphereMesh.position.copy(point.clone());
 
           // Create label
-          const labelCanvas = document.createElement('canvas');
+          const labelCanvas = document.createElement("canvas");
           labelCanvas.width = 200;
           labelCanvas.height = 50;
-          const context = labelCanvas.getContext('2d');
-          context.font = 'Bold 20px Arial';
-          context.fillStyle = 'rgba(255,255,255,0.95)';
+          const context = labelCanvas.getContext("2d");
+          context.font = "Bold 20px Arial";
+          context.fillStyle = "rgba(255,255,255,0.95)";
           context.fillText(activeLandmarkButton, 0, 20);
 
           const labelTexture = new THREE.CanvasTexture(labelCanvas);
           const labelMaterial = new THREE.SpriteMaterial({ map: labelTexture });
           const labelSprite = new THREE.Sprite(labelMaterial);
           labelSprite.scale.set(10, 5, 1); // Adjust scale as needed
-          labelSprite.position.copy(point.clone().add(new THREE.Vector3(5, 5, 5))); // Adjust position as needed
+          labelSprite.position.copy(
+            point.clone().add(new THREE.Vector3(5, 5, 5))
+          ); // Adjust position as needed
           labelSprite.renderOrder = 1;
 
           scene.current.add(sphereMesh);
           scene.current.add(labelSprite);
-          setLandmarks(prevLandmarks => [
+          setLandmarks((prevLandmarks) => [
             ...prevLandmarks,
-            { name: activeLandmarkButton, position: point.clone(), mesh: sphereMesh, label: labelSprite }
+            {
+              name: activeLandmarkButton,
+              position: point.clone(),
+              mesh: sphereMesh,
+              label: labelSprite,
+            },
           ]);
         }
       }
@@ -300,276 +321,516 @@ const App = () => {
 
   // Function to create a line between two landmarks
   const createLine = (startPoint, endPoint, name) => {
-    const material = new THREE.LineBasicMaterial({ color: 0xadd8e6, linewidth: 5 }); // Light blue color and thickness of 5
-    const geometry = new THREE.BufferGeometry().setFromPoints([startPoint, endPoint]);
+    const material = new THREE.LineBasicMaterial({
+      color: 0xadd8e6,
+      linewidth: 5,
+    }); // Light blue color and thickness of 5
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+      startPoint,
+      endPoint,
+    ]);
     const line = new THREE.Line(geometry, material);
     line.name = name; // Set line name
     scene.current.add(line);
     return line;
   };
 
+  const [varus_valgus_plane, set_varus_valgus_plane] = useState(null);
+  const [Flexion_Extension_Plane, set_Flexion_Extension_Plane] = useState(null);
+  const [distal_resection_plane, set_distal_resection_plane] = useState(null);
+
+  const [varus_valgus_plane_angle, set_varus_valgus_plane_angle] = useState(3);
+  const [Flexion_Extension_Plane_angle, set_Flexion_Extension_Plane_angle] =
+    useState(3);
+  const [distal_resection_plane_angle, set_distal_resection_plane_angle] =
+    useState(0);
+
+  const [varus_valgus_plane_axis, set_varus_valgus_plane_axis] = useState(null);
+  const [Flexion_Extension_Plane_axis, set_Flexion_Extension_Plane_axis] =
+    useState(null);
+  const [distal_resection_plane_axis, set_distal_resection_plane_axis] =
+    useState(null);
+
+  const [handleUpdateButton, setHandleUpdateButton] = useState(false);
   // Function to handle the button click to create/update lines
   const handleUpdateButtonClick = () => {
+    setHandleUpdateButton(true);
     // Define the pairs of landmarks and their respective line names
     const lineConfigurations = [
       { start: "femurCenter", end: "hipCenter", name: "Mechanical Axis" },
-      { start: "femurProximalCanal", end: "femurDistalCanal", name: "Anatomical Axis" },
-      { start: "medialEpicondyle", end: "lateralEpicondyle", name: "TEA-Trans epicondyle Axis" },
-      { start: "posteriorMedialPt", end: "posteriorLateralPt", name: "PCA- Posterior Condyle Axis" },
+      {
+        start: "femurProximalCanal",
+        end: "femurDistalCanal",
+        name: "Anatomical Axis",
+      },
+      {
+        start: "medialEpicondyle",
+        end: "lateralEpicondyle",
+        name: "TEA-Trans epicondyle Axis",
+      },
+      {
+        start: "posteriorMedialPt",
+        end: "posteriorLateralPt",
+        name: "PCA- Posterior Condyle Axis",
+      },
     ];
-
-    const updatedLines = lineConfigurations.map(({ start, end, name }) => {
+    let lines = {};
+    lineConfigurations.forEach(({ start, end, name }) => {
       const startPoint = landmarks.find((lm) => lm.name === start)?.position;
       const endPoint = landmarks.find((lm) => lm.name === end)?.position;
+
       if (startPoint && endPoint) {
-        return createLine(startPoint, endPoint, name);
+        lines[name] = createLine(startPoint, endPoint, name);
       }
-      console.log("line created")
-      return null;
+      console.log("line created");
     });
-
-    // Update the state with the new lines
-    setLines(updatedLines.filter(Boolean));
-
-    // Clear existing plane
-    if (plane) {
-      scene.current.remove(plane);
-      setPlane(null);
-    }
-
+    // // Clear existing plane
+    // if (plane) {
+    //   scene.current.remove(plane);
+    //   setPlane(null);
+    // }
     // Create perpendicular plane
-    createPerpendicularPlane();
-    projectTEAAxis();
-    projectAnteriorLine();
-    createFlexExtPlane();
+    let planeMech = createPerpendicularPlane();
+    let projectedLine = projectLineOntoPlane(
+      lines["TEA-Trans epicondyle Axis"],
+      planeMech,
+      scene.current
+    );
+    let anteriorLine = createPerpendicularLine(
+      projectedLine,
+      lines["Mechanical Axis"],
+      landmarks.find((lm) => lm.name === "femurCenter")?.position,
+      500,
+      scene.current
+    );
+    let varus_valgus_plane_orignial = createRotatedPlane(
+      anteriorLine,
+      planeMech,
+      3,
+      scene.current
+    );
+    set_varus_valgus_plane(varus_valgus_plane_orignial[0]);
+    set_varus_valgus_plane_axis(varus_valgus_plane_orignial[1]);
+    let projectedAnterior = projectLineOntoPlane(
+      anteriorLine,
+      varus_valgus_plane_orignial[0],
+      scene.current
+    );
+    let perpendicularToAnterior = createPerpendicularLineOnPlane(
+      projectedAnterior,
+      varus_valgus_plane_orignial[0],
+      landmarks.find((lm) => lm.name === "femurCenter")?.position,
+      500,
+      scene.current
+    );
+    let Flexion_Extension_Plane_original = createRotatedPlane(
+      perpendicularToAnterior,
+      varus_valgus_plane_orignial[0],
+      3,
+      scene.current
+    );
+    set_Flexion_Extension_Plane_axis(Flexion_Extension_Plane_original[1]);
+    set_distal_resection_plane_axis(Flexion_Extension_Plane_original[1]);
+    set_Flexion_Extension_Plane(Flexion_Extension_Plane_original[0]);
+    let distal_medial_plane = createParallelPlane(
+      Flexion_Extension_Plane_original[0],
+      landmarks.find((lm) => lm.name === "distalMedialPt")?.position,
+      scene.current
+    );
+    let distal_resection_plane_original = createParallelPlaneAtDistance(
+      distal_medial_plane,
+      10,
+      scene.current
+    );
+    set_distal_resection_plane(distal_resection_plane_original);
+    let Distal_Medial = createLineAndText(
+      landmarks.find((lm) => lm.name === "distalMedialPt")?.position,
+      distal_resection_plane_original,
+      scene.current
+    );
+    let Distal_Lateral = createLineAndText(
+      landmarks.find((lm) => lm.name === "distalLateralPt")?.position,
+      distal_resection_plane_original,
+      scene.current
+    );
   };
+
+  // Function to create a line between a point and a plane, calculate the distance, and add text to the scene
+  function createLineAndText(point, plane, scene) {
+    // Calculate the plane's normal vector
+    const normalMatrix = new THREE.Matrix3().getNormalMatrix(plane.matrixWorld);
+    const normal = new THREE.Vector3(0, 0, 1)
+      .applyMatrix3(normalMatrix)
+      .normalize();
+
+    // Calculate the closest point on the plane to the given point
+    const planePoint = plane.position.clone();
+    const pointToPlane = new THREE.Vector3().subVectors(point, planePoint);
+    const distanceToPlane = pointToPlane.dot(normal);
+    const closestPointOnPlane = point
+      .clone()
+      .sub(normal.clone().multiplyScalar(distanceToPlane));
+
+    // Create the line geometry
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+      point,
+      closestPointOnPlane,
+    ]);
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
+    const line = new THREE.Line(lineGeometry, lineMaterial);
+    line.renderOrder = 44;
+    scene.add(line);
+
+    // Calculate the distance
+    const distance = point.distanceTo(closestPointOnPlane);
+
+    // Load font and create text geometry
+    const loader = new FontLoader();
+    loader.load(
+      "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
+      function (font) {
+        const textGeometry = new TextGeometry(distance.toFixed(2), {
+          font: font,
+          size: 12,
+          height: 0.1,
+        });
+        const textMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+
+        // Position the text at the midpoint of the line
+        const midPoint = new THREE.Vector3()
+          .addVectors(point, closestPointOnPlane)
+          .multiplyScalar(0.5);
+        textMesh.position.copy(midPoint);
+        let quaternion = camera.current.quaternion;
+        textMesh.onBeforeRender = function (rendererr) {
+          textMesh.quaternion.copy(quaternion);
+          rendererr.clearDepth();
+        };
+
+        // Rotate the text to face the camera
+        textMesh.lookAt(camera.current.position);
+
+        scene.add(textMesh);
+      }
+    );
+
+    // Return the line and distance (optional)
+    return { line, distance };
+  }
+
+  // Function to create a plane parallel to a given plane at a specified distance in the proximal direction
+  function createParallelPlaneAtDistance(originalPlane, distance, scene) {
+    // Copy the geometry and material of the original plane
+    const planeGeometry = originalPlane.geometry.clone();
+    const planeMaterial = originalPlane.material.clone();
+
+    // Create the new plane
+    const newPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+
+    // Copy the rotation and scale of the original plane
+    newPlane.rotation.copy(originalPlane.rotation);
+    newPlane.scale.copy(originalPlane.scale);
+
+    // Calculate the normal vector of the original plane
+    const normalMatrix = new THREE.Matrix3().getNormalMatrix(
+      originalPlane.matrixWorld
+    );
+    const normal = new THREE.Vector3(0, 0, 1)
+      .applyMatrix3(normalMatrix)
+      .normalize();
+
+    // Set the position of the new plane by translating it along the normal vector
+    newPlane.position
+      .copy(originalPlane.position)
+      .add(normal.multiplyScalar(distance));
+
+    // Add the new plane to the scene
+    scene.add(newPlane);
+
+    // Return the new plane (optional)
+    return newPlane;
+  }
+
+  // Function to create a plane parallel to a given plane and passing through a given point
+  function createParallelPlane(originalPlane, point, scene) {
+    // Copy the geometry and material of the original plane
+    const planeGeometry = originalPlane.geometry.clone();
+    const planeMaterial = originalPlane.material.clone();
+
+    // Create the new plane
+    const newPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+
+    // Copy the rotation and scale of the original plane
+    newPlane.rotation.copy(originalPlane.rotation);
+    newPlane.scale.copy(originalPlane.scale);
+
+    // Set the position of the new plane to the given point
+    newPlane.position.copy(point);
+
+    // Add the new plane to the scene
+    scene.add(newPlane);
+
+    // Return the new plane (optional)
+    return newPlane;
+  }
+
+  // Function to create a line perpendicular to a given line and on a given plane
+  function createPerpendicularLineOnPlane(
+    line,
+    plane,
+    startPoint,
+    distance,
+    scene
+  ) {
+    // Calculate the direction vector of the given line
+    const linePoints = line.geometry.attributes.position.array;
+    const lineStart = new THREE.Vector3(
+      linePoints[0],
+      linePoints[1],
+      linePoints[2]
+    );
+    const lineEnd = new THREE.Vector3(
+      linePoints[3],
+      linePoints[4],
+      linePoints[5]
+    );
+    const lineDirection = new THREE.Vector3()
+      .subVectors(lineEnd, lineStart)
+      .normalize();
+
+    // Calculate the normal of the plane
+    const planeNormal = new THREE.Vector3(0, 1, 0); // Assuming the plane is horizontal
+
+    // Calculate the perpendicular direction using cross product
+    const perpendicularDirection = new THREE.Vector3()
+      .crossVectors(lineDirection, planeNormal)
+      .normalize();
+
+    // Calculate the end point of the new line
+    const endPoint = new THREE.Vector3().addVectors(
+      startPoint,
+      perpendicularDirection.multiplyScalar(distance)
+    );
+
+    // Create the new line
+    const newLineGeometry = new THREE.BufferGeometry().setFromPoints([
+      startPoint,
+      endPoint,
+    ]);
+    const newLine = new THREE.Line(
+      newLineGeometry,
+      new THREE.LineBasicMaterial({ color: 0xff0000 })
+    );
+
+    newLine.renderOrder = 2;
+
+    scene.add(newLine);
+
+    // Return the new line (optional)
+    return newLine;
+  }
+
+  function createRotatedPlane(line, plane, angleInDegrees, scene) {
+    // Duplicate the plane
+    const newPlane = plane.clone();
+
+    // Calculate the rotation axis (direction of the line)
+    const points = line.geometry.attributes.position.array;
+    const lineStart = new THREE.Vector3(points[0], points[1], points[2]);
+    const lineEnd = new THREE.Vector3(points[3], points[4], points[5]);
+    const rotationAxis = new THREE.Vector3()
+      .subVectors(lineEnd, lineStart)
+      .normalize();
+
+    // Convert angle to radians
+    const angleInRadians = THREE.MathUtils.degToRad(angleInDegrees);
+
+    // Apply the rotation around the line's axis
+    const quaternion = new THREE.Quaternion().setFromAxisAngle(
+      rotationAxis,
+      angleInRadians
+    );
+    newPlane.applyQuaternion(quaternion);
+
+    // Translate the plane to the correct position
+    newPlane.position.copy(plane.position);
+
+    // Add the rotated plane to the scene
+    scene.add(newPlane);
+
+    // Return the new rotated plane (optional)
+    return [newPlane, rotationAxis];
+  }
 
   // Function to create a plane perpendicular to the mechanical axis
   const createPerpendicularPlane = () => {
-    const mechAxisStart = landmarks.find((lm) => lm.name === "femurCenter")?.position;
-    const mechAxisEnd = landmarks.find((lm) => lm.name === "hipCenter")?.position;
-
+    const mechAxisStart = landmarks.find(
+      (lm) => lm.name === "femurCenter"
+    )?.position;
+    const mechAxisEnd = landmarks.find(
+      (lm) => lm.name === "hipCenter"
+    )?.position;
     if (mechAxisStart && mechAxisEnd) {
-      const mechAxis = new THREE.Vector3().copy(mechAxisEnd).sub(mechAxisStart).normalize();
-
-      // Calculate a point on the plane
-      const planePoint = mechAxisStart.clone().add(mechAxis.clone().multiplyScalar(10)); // Assuming a distance of 10 for now
-
+      const mechAxis = new THREE.Vector3()
+        .copy(mechAxisEnd)
+        .sub(mechAxisStart)
+        .normalize();
       // Create a plane geometry
       const planeGeometry = new THREE.PlaneGeometry(200, 200);
-      const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
+      const planeMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffff00,
+        side: THREE.DoubleSide,
+      });
       const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
-
       // Set the position and rotation of the plane
-      planeMesh.position.copy(planePoint);
-      const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), mechAxis);
-      planeMesh.quaternion.copy(quaternion);
-
+      planeMesh.position.copy(mechAxisEnd);
+      // const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), mechAxis);
+      // planeMesh.quaternion.copy(quaternion);
       // Update state
-      setPlane(planeMesh);
-
       // Add the plane to the scene
       scene.current.add(planeMesh);
+      return planeMesh;
     }
   };
 
-  const projectTEAAxis = () => {
-    const mechAxisStart = landmarks.find((lm) => lm.name === "femurCenter")?.position;
-    const mechAxisEnd = landmarks.find((lm) => lm.name === "hipCenter")?.position;
-    const teAxisStart = landmarks.find((lm) => lm.name === "medialEpicondyle")?.position;
-    const teAxisEnd = landmarks.find((lm) => lm.name === "lateralEpicondyle")?.position;
+  function projectPointOntoPlane(point, planeNormal, planePoint) {
+    const vectorFromPlane = new THREE.Vector3().subVectors(point, planePoint);
+    const distance = vectorFromPlane.dot(planeNormal);
+    return point.clone().sub(planeNormal.clone().multiplyScalar(distance));
+  }
 
-    if (mechAxisStart && mechAxisEnd && teAxisStart && teAxisEnd) {
-      const mechAxis = new THREE.Vector3().copy(mechAxisEnd).sub(mechAxisStart).normalize();
-      const teAxis = new THREE.Vector3().copy(teAxisEnd).sub(teAxisStart).normalize();
+  // Function to project a line onto a plane and add the projected line to the scene
+  function projectLineOntoPlane(line, plane, scene) {
+    const planeNormal = new THREE.Vector3();
+    plane.getWorldDirection(planeNormal); // Get the plane's normal
+    const planePoint = plane.position.clone(); // Get a point on the plane
 
-      const projectedTEAxis = teAxis.clone().sub(mechAxis.clone().multiplyScalar(teAxis.dot(mechAxis)));
+    const points = line.geometry.attributes.position.array;
+    const projectedPoints = [];
 
-      const startPoint = landmarks.find((lm) => lm.name === "medialEpicondyle")?.position;
-      const endPoint = startPoint.clone().add(projectedTEAxis);
-
-      const material = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 5 });
-      const geometry = new THREE.BufferGeometry().setFromPoints([startPoint, endPoint]);
-      const line = new THREE.Line(geometry, material);
-      line.name = "Projected TEA Axis";
-      scene.current.add(line);
-    }
-  };
-
-  const rotatePlane = (angle) => {
-    if (plane.current) {
-      const anteriorLineStart = landmarks.find((lm) => lm.name === "femurCenter")?.position;
-      const anteriorLineEnd = landmarks.find((lm) => lm.name === "hipCenter")?.position;
-
-      if (anteriorLineStart && anteriorLineEnd) {
-        const anteriorAxis = anteriorLineEnd.clone().sub(anteriorLineStart).normalize();
-        const rotationAxis = new THREE.Vector3().copy(anteriorAxis).normalize();
-
-        const q = new THREE.Quaternion();
-        q.setFromAxisAngle(rotationAxis, MathUtils.degToRad(angle));
-
-        plane.current.applyQuaternion(q);
-      }
-    } else {
-      console.error("Plane reference is not yet set.");
-    }
-  };
-
-  const handleRotationButtonClick = (direction) => {
-    const angle = direction === "positive" ? 10 : -10;
-    rotatePlane(angle);
-  };
-  const [flexExtPlane, setFlexExtPlane] = useState(null);
-  // Function to project anterior line onto varus/valgus plane
-  const projectAnteriorLine = () => {
-    const mechAxisStart = landmarks.find((lm) => lm.name === "femurCenter")?.position;
-    const mechAxisEnd = landmarks.find((lm) => lm.name === "hipCenter")?.position;
-    const anteriorLineStart = landmarks.find((lm) => lm.name === "femurCenter")?.position;
-    const anteriorLineEnd = landmarks.find((lm) => lm.name === "hipCenter")?.position;
-
-    if (mechAxisStart && mechAxisEnd && anteriorLineStart && anteriorLineEnd) {
-      const mechAxis = new THREE.Vector3().copy(mechAxisEnd).sub(mechAxisStart).normalize();
-      const anteriorLine = new THREE.Vector3().copy(anteriorLineEnd).sub(anteriorLineStart);
-
-      // Handle the case where the anteriorLine vector has zero length
-      if (anteriorLine.lengthSq() === 0) {
-        console.error("Error: Anterior line vector has zero length.");
-        return;
-      }
-
-      const projectedPoint = anteriorLineStart.clone().add(
-        anteriorLine.clone().projectOnVector(mechAxis)
+    for (let i = 0; i < points.length; i += 3) {
+      const point = new THREE.Vector3(points[i], points[i + 1], points[i + 2]);
+      const projectedPoint = projectPointOntoPlane(
+        point,
+        planeNormal,
+        planePoint
       );
+      projectedPoints.push(projectedPoint);
+    }
 
-      const endPoint = projectedPoint.clone().add(mechAxis.clone().multiplyScalar(10)); // Assuming a distance of 10 for now
+    const projectedLineMaterial = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+    });
+    const projectedLineGeometry = new THREE.BufferGeometry().setFromPoints(
+      projectedPoints
+    );
+    const projectedLine = new THREE.Line(
+      projectedLineGeometry,
+      projectedLineMaterial
+    );
 
-      const material = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 });
-      const geometry = new THREE.BufferGeometry().setFromPoints([projectedPoint, endPoint]);
-      const line = new THREE.Line(geometry, material);
-      line.name = "Projected Anterior Line";
-      scene.current.add(line);
+    // Set the render order of the projected line to be high so it renders on top
+    projectedLine.renderOrder = 2;
+    scene.add(projectedLine);
+    return projectedLine;
+  }
+
+  function createPerpendicularLine(line1, line2, startPoint, distance, scene) {
+    // Get points of line1
+    const points1 = line1.geometry.attributes.position.array;
+    const dir1 = new THREE.Vector3()
+      .subVectors(
+        new THREE.Vector3(points1[3], points1[4], points1[5]),
+        new THREE.Vector3(points1[0], points1[1], points1[2])
+      )
+      .normalize();
+
+    // Get points of line2
+    const points2 = line2.geometry.attributes.position.array;
+    const dir2 = new THREE.Vector3()
+      .subVectors(
+        new THREE.Vector3(points2[3], points2[4], points2[5]),
+        new THREE.Vector3(points2[0], points2[1], points2[2])
+      )
+      .normalize();
+
+    // Calculate perpendicular direction using cross product
+    const perpendicularDir = new THREE.Vector3()
+      .crossVectors(dir1, dir2)
+      .normalize();
+
+    // Calculate the end points of the perpendicular line
+    const endPoint1 = new THREE.Vector3().addVectors(
+      startPoint,
+      perpendicularDir.clone().multiplyScalar(distance / 2)
+    );
+    const endPoint2 = new THREE.Vector3().addVectors(
+      startPoint,
+      perpendicularDir.clone().multiplyScalar(-distance / 2)
+    );
+
+    // Create the perpendicular line
+    const perpendicularLineGeometry = new THREE.BufferGeometry().setFromPoints([
+      endPoint1,
+      endPoint2,
+    ]);
+    const perpendicularLine = new THREE.Line(
+      perpendicularLineGeometry,
+      new THREE.LineBasicMaterial({ color: 0xff0000 })
+    );
+    perpendicularLine.renderOrder = 3;
+
+    // Add perpendicular line to the scene
+    scene.add(perpendicularLine);
+
+    // Return the created perpendicular line (optional, depending on your needs)
+    return perpendicularLine;
+  }
+
+  function handleRotationButtonClick(direction) {
+    if (direction === "positive") {
+      set_varus_valgus_plane_angle(varus_valgus_plane_angle + 1);
     } else {
-      console.error("Error: Unable to project anterior line due to missing landmarks.");
+      set_varus_valgus_plane_angle(varus_valgus_plane_angle - 1);
     }
-  };
+    const rotationAngle = direction === "positive" ? 1 : -1;
+    const angleInRadians = THREE.MathUtils.degToRad(rotationAngle);
+    const quaternion = new THREE.Quaternion().setFromAxisAngle(varus_valgus_plane_axis, angleInRadians);
+    varus_valgus_plane.applyQuaternion(quaternion);
+  }
 
-
-  // Function to create the flexion/extension plane
-  const createFlexExtPlane = (projectedPointOnPlane) => {
-    const femurCenter = landmarks.find((lm) => lm.name === "femurCenter")?.position;
-    const lateralEnd = femurCenter.clone().add(new THREE.Vector3(0, -10, 0)); // 10mm laterally
-
-    if (femurCenter && projectedPointOnPlane && lateralEnd) {
-      const lateralAxis = lateralEnd.clone().sub(femurCenter).normalize();
-
-      const planeGeometry = new THREE.PlaneGeometry(200, 200);
-      const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
-      const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
-
-      planeMesh.position.copy(femurCenter); // Start from femur center
-      const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), lateralAxis);
-      planeMesh.quaternion.copy(quaternion);
-
-      setFlexExtPlane(planeMesh);
-      scene.current.add(planeMesh);
-    }
-  };
-
-  // Function to rotate the flexion/extension plane
-  const rotateFlexExtPlane = (angle) => {
-    if (flexExtPlane) {
-      const femurCenter = landmarks.find((lm) => lm.name === "femurCenter")?.position;
-      const lateralEnd = femurCenter.clone().add(new THREE.Vector3(0, -10, 0)); // 10mm laterally
-
-      if (femurCenter && lateralEnd) {
-        const lateralAxis = lateralEnd.clone().sub(femurCenter).normalize();
-        const rotationAxis = new THREE.Vector3().copy(lateralAxis).normalize();
-
-        const q = new THREE.Quaternion();
-        q.setFromAxisAngle(rotationAxis, MathUtils.degToRad(angle));
-
-        flexExtPlane.applyQuaternion(q);
-      }
+  function handleFlexExtRotationButtonClick(direction) {
+    if (direction === "positive") {
+      set_Flexion_Extension_Plane_angle(Flexion_Extension_Plane_angle + 1);
     } else {
-      console.error("Flexion/Extension plane reference is not yet set.");
+      set_Flexion_Extension_Plane_angle(Flexion_Extension_Plane_angle - 1);
     }
-  };
+    const rotationAngle = direction === "positive" ? 1 : -1;
+    const angleInRadians = THREE.MathUtils.degToRad(rotationAngle);
+    const quaternion = new THREE.Quaternion().setFromAxisAngle(Flexion_Extension_Plane_axis, angleInRadians);
+    Flexion_Extension_Plane.applyQuaternion(quaternion);
+  }
 
-  // Function to handle rotation button click for the flexion/extension plane
-  const handleFlexExtRotationButtonClick = (direction) => {
-    const angle = direction === "positive" ? 10 : -10;
-    rotateFlexExtPlane(angle);
-  };
-
-  const createDistalMedialPlane = () => {
-    if (flexExtPlane) {
-      const distalMedialPoint = landmarks.find((lm) => lm.name === "distalMedialPt")?.position;
-      if (distalMedialPoint) {
-        const planeGeometry = new THREE.PlaneGeometry(200, 200);
-        const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xff00ff, side: THREE.DoubleSide });
-        const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
-
-        planeMesh.position.copy(distalMedialPoint);
-        planeMesh.quaternion.copy(flexExtPlane.quaternion);
-
-        scene.current.add(planeMesh);
-      }
+  function handleDistalResectionRotationButtonClick(direction) {
+    if (direction === "positive") {
+      set_distal_resection_plane_angle(distal_resection_plane_angle + 1);
+    } else {
+      set_distal_resection_plane_angle(distal_resection_plane_angle - 1);
     }
-  };
+    const rotationAngle = direction === "positive" ? 1 : -1;
+    // Convert angle to radians
+    const angleInRadians = THREE.MathUtils.degToRad(rotationAngle);
+    const quaternion = new THREE.Quaternion().setFromAxisAngle(distal_resection_plane_axis, angleInRadians);
+    distal_resection_plane.applyQuaternion(quaternion);
+  }
 
-  const [distalResectionPlane, setDistalResectionPlane] = useState(null);
-
-  const createDistalResectionPlane = () => {
-    if (flexExtPlane) {
-      const distalMedialPoint = landmarks.find((lm) => lm.name === "distalMedialPt")?.position;
-      if (distalMedialPoint) {
-        const planeGeometry = new THREE.PlaneGeometry(200, 200);
-        const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xff00ff, side: THREE.DoubleSide });
-        const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
-
-        // Adjust distance to 10mm in the proximal direction
-        const distalResectionDistance = 10;
-        const planePosition = distalMedialPoint.clone().add(flexExtPlane.up.clone().multiplyScalar(distalResectionDistance));
-        planeMesh.position.copy(planePosition);
-        planeMesh.quaternion.copy(flexExtPlane.quaternion);
-
-        setDistalResectionPlane(planeMesh);
-
-        scene.current.add(planeMesh);
-      }
-    }
-  };
-
-
-  // Function to rotate the distal resection plane
-  const rotateDistalResectionPlane = (angle) => {
-    if (distalResectionPlane) {
-      distalResectionPlane.rotateZ(MathUtils.degToRad(angle));
-    }
-  };
-
-  // Function to handle rotation button click for the distal resection plane
-  const handleDistalResectionRotationButtonClick = (direction) => {
-    const angle = direction === "positive" ? 10 : -10;
-    rotateDistalResectionPlane(angle);
-  };
-
-  useEffect(() => {
-    createDistalMedialPlane();
-    createDistalResectionPlane();
-  }, [flexExtPlane, landmarks]);
-
-  // Toggle button state
   const [resectionVisible, setResectionVisible] = useState(true);
 
-  const handleToggleResection = () => {
-    setResectionVisible((prev) => !prev);
-  };
-
-  // Measurement calculation
-  const calculateDistance = (point1, point2) => {
-    return point1.distanceTo(point2);
-  };
+  function handleToggleResection() {
+    distal_resection_plane.visible = resectionVisible;
+    setResectionVisible(!resectionVisible);
+  }
 
   return (
     <div>
@@ -596,17 +857,48 @@ const App = () => {
             </label>
           </div>
         ))}
-        <button onClick={handleUpdateButtonClick}>Update Lines</button>
+        <button onClick={() => handleUpdateButtonClick()}>Update Lines</button>
         <br></br>
-        <button onClick={() => handleRotationButtonClick("positive")}>Rotate Positive</button>
-        Varus/Vaglus Plane
-        <button onClick={() => handleRotationButtonClick("negative")}>Rotate Negative</button>
-        <button onClick={() => handleFlexExtRotationButtonClick("positive")}>Rotate Positive</button>
-        Flexion/Extension Plane
-        <button onClick={() => handleFlexExtRotationButtonClick("negative")}>Rotate Negative</button>
-        <button onClick={() => handleDistalResectionRotationButtonClick("positive")}>Rotate Distal Resection Plane Positive</button>
-        <button onClick={() => handleDistalResectionRotationButtonClick("negative")}>Rotate Distal Resection Plane Negative</button>
-        <button onClick={handleToggleResection}>{resectionVisible ? "Hide Resection" : "Show Resection"}</button>
+        {handleUpdateButton ? (
+          <>
+            <button onClick={() => handleRotationButtonClick("positive")}>
+              Rotate Positive
+            </button>
+            Varus/Vaglus Plane {varus_valgus_plane_angle}
+            <button onClick={() => handleRotationButtonClick("negative")}>
+              Rotate Negative
+            </button>
+            <button
+              onClick={() => handleFlexExtRotationButtonClick("positive")}
+            >
+              Rotate Positive
+            </button>
+            Flexion/Extension Plane {Flexion_Extension_Plane_angle}
+            <button
+              onClick={() => handleFlexExtRotationButtonClick("negative")}
+            >
+              Rotate Negative
+            </button>
+            <button
+              onClick={() =>
+                handleDistalResectionRotationButtonClick("positive")
+              }
+            >
+              Rotate Distal Resection Plane Positive
+            </button>
+            Distal Resection Plane {distal_resection_plane_angle}
+            <button
+              onClick={() =>
+                handleDistalResectionRotationButtonClick("negative")
+              }
+            >
+              Rotate Distal Resection Plane Negative
+            </button>
+            <button onClick={() => handleToggleResection()}>
+              {resectionVisible ? "Hide Resection" : "Show Resection"}
+            </button>
+          </>
+        ) : null}
       </div>
       <div className="pane" style={getChildContainerStyle()}>
         {modelLoaded ? (
