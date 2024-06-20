@@ -114,7 +114,6 @@ const App = () => {
         5000
       );
 
-      console.log(camera);
       camera.current.up.set(0, 0, 1);
       camera.current.position.set(200, 200, 200);
       camera.current.lookAt(0.0, 0.0, 0.0);
@@ -224,7 +223,6 @@ const App = () => {
 
   const handleCanvasClick = (event) => {
     if (activeLandmarkButton) {
-      console.log(activeLandmarkButton);
       const canvasBounds = renderer.current.domElement.getBoundingClientRect();
       const mouse = {
         x: ((event.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1,
@@ -238,8 +236,6 @@ const App = () => {
         scene.current.children[3],
         true
       );
-
-      console.log(intersects, scene);
 
       if (intersects.length > 0) {
         const point = intersects[0].point;
@@ -272,35 +268,42 @@ const App = () => {
           const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
           sphereMesh.position.copy(point.clone());
 
-          // Create label
-          const labelCanvas = document.createElement("canvas");
-          labelCanvas.width = 200;
-          labelCanvas.height = 50;
-          const context = labelCanvas.getContext("2d");
-          context.font = "Bold 20px Arial";
-          context.fillStyle = "rgba(255,255,255,0.95)";
-          context.fillText(activeLandmarkButton, 0, 20);
+          const loader = new FontLoader();
+          loader.load(
+            "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
+            function (font) {
+              const textGeometry = new TextGeometry(activeLandmarkButton, {
+                font: font,
+                size: 6,
+                height: 0.1,
+              });
+              const textMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+              const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+              // Position the text at the midpoint of the line
+              textMesh.position.copy(point.clone().add(new THREE.Vector3(5, 5, 5)));
+              let quaternion = camera.current.quaternion;
+              textMesh.onBeforeRender = function (rendererr) {
+                textMesh.quaternion.copy(quaternion);
+                rendererr.clearDepth();
+              };
 
-          const labelTexture = new THREE.CanvasTexture(labelCanvas);
-          const labelMaterial = new THREE.SpriteMaterial({ map: labelTexture });
-          const labelSprite = new THREE.Sprite(labelMaterial);
-          labelSprite.scale.set(10, 5, 1); // Adjust scale as needed
-          labelSprite.position.copy(
-            point.clone().add(new THREE.Vector3(5, 5, 5))
-          ); // Adjust position as needed
-          labelSprite.renderOrder = 1;
+              // Rotate the text to face the camera
+              textMesh.lookAt(camera.current.position);
+              textMesh.renderOrder = 2;
 
-          scene.current.add(sphereMesh);
-          scene.current.add(labelSprite);
-          setLandmarks((prevLandmarks) => [
-            ...prevLandmarks,
-            {
-              name: activeLandmarkButton,
-              position: point.clone(),
-              mesh: sphereMesh,
-              label: labelSprite,
-            },
-          ]);
+              scene.current.add(textMesh);
+              scene.current.add(sphereMesh);
+              setLandmarks((prevLandmarks) => [
+                ...prevLandmarks,
+                {
+                  name: activeLandmarkButton,
+                  position: point.clone(),
+                  mesh: sphereMesh,
+                  label: textMesh,
+                },
+              ]);
+            }
+          );
         }
       }
     }
@@ -382,7 +385,6 @@ const App = () => {
       if (startPoint && endPoint) {
         lines[name] = createLine(startPoint, endPoint, name);
       }
-      console.log("line created");
     });
     // // Clear existing plane
     // if (plane) {
@@ -391,6 +393,7 @@ const App = () => {
     // }
     // Create perpendicular plane
     let planeMech = createPerpendicularPlane();
+    planeMech.visible = false;
     let projectedLine = projectLineOntoPlane(
       lines["TEA-Trans epicondyle Axis"],
       planeMech,
@@ -437,6 +440,7 @@ const App = () => {
       landmarks.find((lm) => lm.name === "distalMedialPt")?.position,
       scene.current
     );
+    distal_medial_plane.visible = false;
     let distal_resection_plane_original = createParallelPlaneAtDistance(
       distal_medial_plane,
       10,
@@ -832,6 +836,14 @@ const App = () => {
     setResectionVisible(!resectionVisible);
   }
 
+  const [planesHide, setPlanesHide] = useState(false)
+
+  function handleTogglePlnes() {
+    varus_valgus_plane.visible = planesHide;
+    Flexion_Extension_Plane.visible = planesHide;
+    setPlanesHide(!planesHide);
+  }
+
   return (
     <div>
       <div className="sidebar">
@@ -895,7 +907,10 @@ const App = () => {
               Rotate Distal Resection Plane Negative
             </button>
             <button onClick={() => handleToggleResection()}>
-              {resectionVisible ? "Hide Resection" : "Show Resection"}
+              {resectionVisible ? "Show Resection" : "Hide Resection"}
+            </button>
+            <button onClick={() => handleTogglePlnes()}>
+              {planesHide ? "Show Planes" : "Hide Planes"}
             </button>
           </>
         ) : null}
